@@ -1,17 +1,22 @@
 const crypto = require('crypto')
 const moment = require('moment')
 const uuid = require('uuid/v4')
+var pyShell = require('python-shell')
 
 const driver = require('bigchaindb-driver/dist/node')
 const BigchainDBLedgerPlugin = require('../cjs/lib/bigchaindb_ledger_plugin')
 
-const BDB_SERVER_URL = process.env.BDB_SERVER_URL || 'http://localhost:9984'
-const BDB_WS_URL = process.env.BDB_WS_URL || 'ws://localhost:9985'
+const BDB_SERVER_URL = process.env.BDB_SERVER_URL || 'http://192.168.56.101:9984'
+const BDB_SERVER_URL1 = process.env.BDB_SERVER_URL1 || 'http://192.168.56.102:9984'
+const BDB_WS_URL = process.env.BDB_WS_URL || 'ws://192.168.56.101:9985'
+const BDB_WS_URL1 = process.env.BDB_WS_URL1 || 'ws://192.168.56.102:9985'
 // const BDB_SERVER_URL = process.env.BDB_SERVER_URL || 'http://35.157.131.84:9984';
 // const BDB_WS_URL = process.env.BDB_WS_URL || 'ws://35.157.131.84:9985';
 
 const BDB_SERVER_API = `${BDB_SERVER_URL}/api/v1/`
 const BDB_WS_API = `${BDB_WS_URL}/api/v1/streams/valid_transactions`
+const BDB_SERVER_API1 = `${BDB_SERVER_URL1}/api/v1/`
+const BDB_WS_API1 = `${BDB_WS_URL1}/api/v1/streams/valid_transactions`
 
 console.log(BDB_SERVER_API, BDB_WS_API)
 
@@ -33,8 +38,8 @@ async function runTest() {
         server: BDB_SERVER_API,
         ws: BDB_WS_API,
         keyPair: {
-            privateKey: '6HgCvsvF7o1zFDPyXZsmU6ZZ7eiiY8i2ccB6z21sfNC8',
-            publicKey: '79K8SPZbeSDYXBrWgt3dsNmYTZbKNtdYQ5XrjA9XEWfG'
+            privateKey: '9nJH9TBF3fPjwZkUsEgJz69a29VF3RpNYtbfHWDsiP8u',
+            publicKey: 'GkJzDcLww3oWfkdUs8YiidcCfgVyaojzD92edSgC7jdd'
         }
     })
 
@@ -42,10 +47,25 @@ async function runTest() {
         server: BDB_SERVER_API,
         ws: BDB_WS_API,
         keyPair: {
-            privateKey: '4HhPSKV9QGGJr2U6Mq5DoZRoqrCU38RfGK6gDtXKAn1L',
-            publicKey: 'AkZUXyGrEygFF6R8vQveE2Wswkn4rSudEBuUSaV7Wiin'
+            privateKey: '5577iMWysNrQ5JoEyZzEx616gyQ7o1Kb4zLX9utjXpNY',
+            publicKey: 'EdahU6x6CVsrPL9kCxh5TooDDJGwb3x3s28hiGpo9unj'
         }
     })
+    
+    console.log('sender connected? ', sender.isConnected())
+    console.log('receiver connected? ', receiver.isConnected())
+
+    await sender.connect()
+    console.log('sender connected? ', sender.isConnected())
+    console.log('sender info? ', sender.getInfo())
+    console.log('sender account? ', sender.getAccount())
+    console.log('sender balance? ', await sender.getBalance())
+
+    await receiver.connect()
+    console.log('receiver connected? ', receiver.isConnected())
+    console.log('receiver info? ', receiver.getInfo())
+    console.log('receiver account? ', receiver.getAccount())
+    console.log('receiver balance? ', await receiver.getBalance())
 
     const txInitialCoins = driver.Transaction.makeCreateTransaction(
         null,
@@ -61,28 +81,16 @@ async function runTest() {
     const txInitialCoinsSigned =
         driver.Transaction.signTransaction(txInitialCoins, sender._keyPair.privateKey)
 
+    console.log('singed txn= ',txInitialCoinsSigned); 
+
     await conn
-        .postTransaction(txInitialCoinsSigned)
+        .postTransactionCommit(txInitialCoinsSigned)
         .then((res) => {
             console.log('Response from BDB server', res)
-            return conn.pollStatusAndFetchTransaction(txInitialCoinsSigned.id)
+            return conn.getTransaction(txInitialCoinsSigned.id)
         })
 
 
-    console.log('sender connected? ', sender.isConnected())
-    console.log('receiver connected? ', receiver.isConnected())
-
-    await sender.connect()
-    console.log('sender connected? ', sender.isConnected())
-    console.log('sender info? ', sender.getInfo())
-    console.log('sender account? ', sender.getAccount())
-    console.log('sender balance? ', await sender.getBalance())
-
-    await receiver.connect()
-    console.log('receiver connected? ', receiver.isConnected())
-    console.log('receiver info? ', receiver.getInfo())
-    console.log('receiver account? ', receiver.getAccount())
-    console.log('receiver balance? ', await receiver.getBalance())
 
     const transfer = {
         id: uuid(),
@@ -100,6 +108,7 @@ async function runTest() {
             'other': 'thing'
         }
     }
+
 
     const receiverFulfilledPromise = new Promise((resolve, reject) => {
         receiver.once('incoming_prepare', async (transfer) => {
@@ -210,4 +219,4 @@ async function runTest() {
     process.exit()
 }
 
-runTest().catch(err => console.log(err))
+runTest().catch(err => console.log('died', err))
